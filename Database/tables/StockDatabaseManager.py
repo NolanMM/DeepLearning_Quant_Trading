@@ -41,7 +41,7 @@ class StockDatabaseManager:
                         "open FLOAT,"
                         "high FLOAT,"
                         "low FLOAT,"
-                        "close FLOAT,"
+                        "close FLOAT," 
                         "volume BIGINT,"
                         "PRIMARY KEY (stock_id, date))"
                     ))
