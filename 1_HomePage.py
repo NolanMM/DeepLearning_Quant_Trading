@@ -1,5 +1,7 @@
 from BatchProcess.DataSource.ListSnP500.ListSnP500Collect import ListSAndP500
+from DeepLearningProcess.Phase1CleanData import phase_1_clean_data
 from BatchProcess.BatchProcess import BatchProcessManager
+from UI.Set_Up_Section import set_up_section
 from multiprocessing.pool import ThreadPool
 import plotly.graph_objects as go
 from dotenv import load_dotenv
@@ -51,9 +53,9 @@ def retrieve_list_ticket():
     return list_of_symbols__
 
 
-@st.cache_data(ttl=1800)
-def batch_process(list_of_symbols__):
-    return BatchProcessManager().run_process(list_of_symbols__)
+# @st.cache_data(ttl=1800)
+# def batch_process(list_of_symbols__):
+#     return BatchProcessManager().run_process(list_of_symbols__)
 
 
 @st.cache_data(ttl=1800)
@@ -79,33 +81,35 @@ _list_of_symbols = retrieve_list_ticket()
 if "stock_data" not in st.session_state:
     st.session_state.stock_data = None
 
-
 # --- MAIN PAGE ---
 set_up_database, eda_process_tabs, deep_learning_tabs = st.tabs(
     ["Set Up Database", "EDA Data", "Deep Learning"])
 
 # --- TABS SET UP DATABASE CONTENT ---
-with set_up_database:
-    def read_markdown_file(file_path):
-        with open(file_path, 'r', encoding='utf-8') as file:
-            data = file.read()
-        return data
+# with set_up_database:
+#     def read_markdown_file(file_path):
+#         with open(file_path, 'r', encoding='utf-8') as file:
+#             data = file.read()
+#         return data
 
-    README_PATH = './assets/Helper_Set_Up.md'
-    # --- Set Up/ Update all data in database---
-    st.markdown(read_markdown_file(README_PATH), unsafe_allow_html=True)
-    st.markdown("### B. Set Up data in database for the first time")
-    update_database = st.button("Update Database")
-    if update_database:
-        async_result = pool.apply_async(
-            batch_process, args=(_list_of_symbols,))
-        bar = st.progress(0)
-        per = PROCESS_TIME / 100
-        for i in range(100):
-            time.sleep(per)
-            bar.progress(i + 1)
-        df_dict = async_result.get()
-        st.write("Please check the data in the database")
+#     README_PATH = './assets/Helper_Set_Up.md'
+#     # --- Set Up/ Update all data in database---
+#     st.markdown(read_markdown_file(README_PATH), unsafe_allow_html=True)
+#     st.markdown("### B. Set Up data in database for the first time")
+#     update_database = st.button("Update Database")
+#     if update_database:
+#         async_result = pool.apply_async(
+#             batch_process, args=(_list_of_symbols,))
+#         bar = st.progress(0)
+#         per = PROCESS_TIME / 100
+#         for i in range(100):
+#             time.sleep(per)
+#             bar.progress(i + 1)
+#         df_dict = async_result.get()
+#         st.write("Please check the data in the database")
+
+set_up_section_control = set_up_section(_list_of_symbols, set_up_database)
+set_up_section_control.run()
 
 
 # --- TABS EDA DATA CONTENT ---
@@ -113,7 +117,7 @@ with eda_process_tabs:
     st.markdown("### I. Retrieve stock data symbol list")
 
     the_stock = st.selectbox(
-        "Select the stock you want to retrieve from database (if available)", _list_of_symbols)
+        "Select the stock you want to retrieve from database (if available)", _list_of_symbols, key="the_stock")
 
     retrieve_col1, retrieve_col2, retrieve_col3 = st.columns(3)
     with retrieve_col1:
@@ -229,6 +233,83 @@ with eda_process_tabs:
 
 # --- DEEP LEARNING TAB ---
 with deep_learning_tabs:
-    st.markdown("### I. Deep Learning Section")
+    st.markdown("## I. Deep Learning Section")
     st.write("This section is under construction")
-    st.markdown("#### 1. Retrieve the data for deep learning")
+    st.markdown("### 1. Retrieve the data for deep learning")
+    if "stock_data_deep_learning" not in st.session_state:
+        st.session_state.stock_data_deep_learning = None
+    the_stock_deep_learning = st.selectbox(
+        "Select the stock you want to retrieve from database (if available)", _list_of_symbols, key="deep_learning")
+    btn_prepare_deep_learning = st.button(
+        "Retrieve Single Stock Data from Database")
+
+    btn_retrieve_all_data_deep_learning = st.button(
+        "Retrieve All Stock Data from Database")
+
+    if btn_prepare_deep_learning:
+        st.session_state.stock_data_deep_learning = the_stock_deep_learning
+    elif btn_retrieve_all_data_deep_learning:
+        st.session_state.stock_data_deep_learning = "all"
+
+    raw_data_retrieve = None
+    if st.session_state.stock_data_deep_learning == the_stock_deep_learning:
+        raw_data_retrieve = batch_process_retrieve_data_by_stock(
+            st.session_state.stock_data_deep_learning)
+    elif st.session_state.stock_data_deep_learning == "all":
+        raw_data_retrieve = batch_process_retrieve_all_data_in_stock_table()
+
+    if raw_data_retrieve is not None:
+        # Print raw data
+        st.write(raw_data_retrieve)
+        total_raw_rows_data = len(raw_data_retrieve)
+        st.success("The number of rows total inside raw dataframe is: " +
+                   str(total_raw_rows_data))
+        num_rows_with_issues_before_clean = len(
+            raw_data_retrieve[
+                raw_data_retrieve.isnull().any(axis=1) |
+                raw_data_retrieve.isna().any(axis=1) |
+                (raw_data_retrieve == '').any(axis=1)
+            ]
+        )
+        message_rows_with_issues_before_clean = "The number of rows with null, nan, '', NaN, None values inside dataframe is: "
+        if num_rows_with_issues_before_clean/total_raw_rows_data > 0.5:
+            st.error(message_rows_with_issues_before_clean +
+                     str(num_rows_with_issues_before_clean))
+        elif num_rows_with_issues_before_clean/total_raw_rows_data > 0.1:
+            st.warning(message_rows_with_issues_before_clean +
+                       str(num_rows_with_issues_before_clean))
+        else:
+            st.success(message_rows_with_issues_before_clean +
+                       str(num_rows_with_issues_before_clean))
+        st.markdown("### 2. Data Preparation")
+        phase_1_clean_data_ = phase_1_clean_data(
+            [st.session_state.stock_data_deep_learning], raw_data_retrieve)
+        st.markdown(
+            "#### 2.1 Data Cleaning Null, Nan, '', NaN, None values inside the dataframe")
+        st.write(phase_1_clean_data_.data_null_nan_cleanned)
+        st.success("The number of rows total inside dataframe is: " +
+                   str(len(phase_1_clean_data_.data_null_nan_cleanned)))
+        num_rows_with_issues_after_clean = len(
+            phase_1_clean_data_.data_null_nan_cleanned[
+                phase_1_clean_data_.data_null_nan_cleanned.isnull().any(axis=1) |
+                phase_1_clean_data_.data_null_nan_cleanned.isna().any(axis=1) |
+                (phase_1_clean_data_.data_null_nan_cleanned == '').any(axis=1)
+            ]
+        )
+        st.success("The number of rows with null, nan, '', NaN, None values inside dataframe is: " +
+                   str(num_rows_with_issues_after_clean))
+        if "cleaning_data_method" not in st.session_state:
+            st.session_state.cleaning_data_method = None
+
+        st.markdown("#### 2.2 Data Cleaning Method")
+        data_cleaning_method_deep_learning_selectbox = st.selectbox(
+            "Select the method you want to process to fill the -1 values", phase_1_clean_data_.list_of_cleaning_data_method_available, key="cleaning_data_method_deep_learning")
+        btn_process_data_cleaning_using_method_deep_learning = st.button(
+            "Processing...")
+
+        if btn_process_data_cleaning_using_method_deep_learning:
+            st.session_state.cleaning_data_method = data_cleaning_method_deep_learning_selectbox
+
+        if st.session_state.cleaning_data_method is not None:
+            st.write(
+                f"Data Cleaning Method: {st.session_state.cleaning_data_method}")
