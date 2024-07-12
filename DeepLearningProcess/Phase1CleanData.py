@@ -1,3 +1,19 @@
+from DeepLearningProcess.FillingDataMethod import (
+    KroghInterpolation,
+    ZeroInterpolation,
+    PiecewisePolynomialInterpolation,
+    PchipInterpolation,
+    AkimaInterpolation,
+    time_based_interpolation,
+    polynomial_interpolation,
+    moving_average_filling_method,
+    linear_interpolation,
+    mean_15_days_filling,
+    arima_imputation,
+    backward_filling,
+    knn_imputation,
+    forward_filling
+)
 from datetime import datetime
 import pandas as pd
 import numpy as np
@@ -116,7 +132,7 @@ class phase_1_clean_data():
         merged_df = pd.merge(stock_df, date_unit_df[['date', 'stock_id', 'open', 'high', 'low', 'close', 'volume']],
                              on=['date', 'stock_id'],
                              how='right',
-                             suffixes=('_df1', '_df2'))
+                             suffixes=('_df1', '_df2'))  # Validate later
 
         # Replace NaN values in df1 columns with corresponding values from df2
         for column in ['open', 'high', 'low', 'close', 'volume']:
@@ -144,6 +160,7 @@ class phase_1_clean_data():
         if self.input_processing_mode == "single":
             # Fill the missing data
             if method == "interpolate":
+
                 self.data_prepare_fill_missing = self.data_prepare_fill_missing.interpolate(
                     method=method)
             elif method == "ffill":
