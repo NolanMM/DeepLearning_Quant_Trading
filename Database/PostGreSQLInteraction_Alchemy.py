@@ -99,3 +99,7 @@ class StockDatabaseManager:
         except Exception as e:
             print(f"Error fetching data: {e}")
             return {}
+
+    def close_connection(self):
+        self.engine.dispose()
+        print("Connection closed")

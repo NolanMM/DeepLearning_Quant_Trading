@@ -8,3 +8,5 @@ psycopg2
 kafka-python
 alpha-vantage
 notebook
+scikit-learn
+statsmodels
